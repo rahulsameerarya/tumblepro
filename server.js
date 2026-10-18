@@ -9,8 +9,8 @@ const healthHandler = require('./api/health');
 const PORT = process.env.PORT || 3000;
 
 const server = http.createServer((req, res) => {
-  const parsedUrl = url.parse(req.url, true);
-  const pathname = parsedUrl.pathname;
+  const rawPath = parsedUrl.pathname || '/';
+  const cleanPath = rawPath.replace(/\.js$/, '').replace(/\/$/, '') || '/';
 
   // Polyfill Express/Vercel helpers on req and res
   req.query = parsedUrl.query;
@@ -32,12 +32,12 @@ const server = http.createServer((req, res) => {
   };
 
   // Route: Health Check
-  if (pathname === '/api/health') {
+  if (cleanPath === '/api/health') {
     return healthHandler(req, res);
   }
 
   // Route: WhatsApp Webhook (GET handshake & POST messages)
-  if (pathname === '/api/webhook') {
+  if (cleanPath === '/api/webhook') {
     if (req.method === 'GET' || req.method === 'OPTIONS') {
       return webhookHandler(req, res);
     }
@@ -60,7 +60,7 @@ const server = http.createServer((req, res) => {
   }
 
   // Root landing page
-  if (pathname === '/') {
+  if (cleanPath === '/' || cleanPath === '') {
     res.setHeader('Content-Type', 'text/html');
     return res.end(`
       <!DOCTYPE html>
