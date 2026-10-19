@@ -2,7 +2,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/((?!api/).*)",
+      "source": "/((?!api/|_expo/|assets/|favicon\\.ico).*)",
       "destination": "/index.html"
     }
   ]
