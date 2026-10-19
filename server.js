@@ -1,12 +1,62 @@
-// server.js - Standalone Node.js server for Render, Railway, or local testing
-// Uses native Node.js HTTP module - zero extra dependencies required!
+// server.js - Production server for TumblePro CRM App + WhatsApp Cloud API Webhook
+// Zero external dependencies - uses native Node.js http, fs, and path modules.
 
 const http = require('http');
 const url = require('url');
+const fs = require('fs');
+const path = require('path');
 const webhookHandler = require('./api/webhook');
 const healthHandler = require('./api/health');
 
 const PORT = process.env.PORT || 3000;
+const DIST_DIR = path.join(__dirname, 'dist');
+
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.json': 'application/json',
+  '.css': 'text/css; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.ttf': 'font/ttf',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+};
+
+function serveStatic(req, res, pathname) {
+  // If requesting root, default to index.html
+  let targetPath = pathname === '/' || pathname === '' ? '/index.html' : pathname;
+  let fullPath = path.join(DIST_DIR, targetPath);
+
+  // Security check: stay within DIST_DIR
+  if (!fullPath.startsWith(DIST_DIR)) {
+    fullPath = path.join(DIST_DIR, 'index.html');
+  }
+
+  // 1. Direct file match in dist (JS bundles, CSS, images, etc.)
+  if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+    const ext = path.extname(fullPath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    return fs.createReadStream(fullPath).pipe(res);
+  }
+
+  // 2. SPA Fallback: for any app route (/dashboard, /customer-portal, /orders/new) serve dist/index.html
+  const indexPath = path.join(DIST_DIR, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return fs.createReadStream(indexPath).pipe(res);
+  }
+
+  // 3. Fallback if dist hasn't finished building
+  res.statusCode = 404;
+  res.setHeader('Content-Type', 'text/html');
+  res.end('<h1>TumblePro App</h1><p>Building production web assets...</p>');
+}
 
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url || '/', true);
@@ -60,44 +110,13 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // Root landing page
-  if (cleanPath === '/' || cleanPath === '') {
-    res.setHeader('Content-Type', 'text/html');
-    return res.end(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>TumblePro WhatsApp Cloud API Webhook</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-            .card { background: #1e293b; border-radius: 16px; padding: 32px; max-width: 520px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
-            h1 { color: #38bdf8; margin-top: 0; font-size: 24px; display: flex; align-items: center; gap: 8px; }
-            .badge { background: #059669; color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 999px; font-weight: bold; }
-            p { color: #94a3b8; line-height: 1.6; }
-            .endpoint { background: #0f172a; padding: 12px 16px; border-radius: 8px; font-family: monospace; color: #4ade80; border: 1px solid #334155; word-break: break-all; margin: 12px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <h1>🧺 TumblePro Webhook <span class="badge">ONLINE</span></h1>
-            <p>The Meta WhatsApp Cloud API webhook handler is running 24/7.</p>
-            <p><strong>Configured Webhook Endpoint:</strong></p>
-            <div class="endpoint">POST /api/webhook</div>
-            <p><strong>Health Check Endpoint:</strong></p>
-            <div class="endpoint">GET /api/health</div>
-            <p style="font-size: 13px; color: #64748b; margin-top: 24px;">TumblePro Multi-Store Laundry & Dry Cleaning CRM Platform</p>
-          </div>
-        </body>
-      </html>
-    `);
-  }
-
-  // 404 Fallback
-  res.status(404).json({ error: 'Endpoint Not Found', availableEndpoints: ['/api/webhook', '/api/health'] });
+  // All other routes: Serve TumblePro Frontend App (Single Page Application)
+  return serveStatic(req, res, rawPath);
 });
 
 server.listen(PORT, () => {
-  console.log(`🚀 [TumblePro Webhook Server] running on http://localhost:${PORT}`);
-  console.log(`📡 Webhook URL: http://localhost:${PORT}/api/webhook`);
-  console.log(`🩺 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🚀 [TumblePro Production Server] running on http://localhost:${PORT}`);
+  console.log(`🌐 TumblePro CRM App: http://localhost:${PORT}`);
+  console.log(`📱 Customer Portal: http://localhost:${PORT}/customer-portal`);
+  console.log(`📡 WhatsApp Webhook: http://localhost:${PORT}/api/webhook`);
 });
