@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
-    "build": "expo export -p web",
+    "build": "echo prebuilt",
+    "export": "expo export -p web",
     "start": "node server.js",
     "dev": "expo start --web",
     "expo": "expo start",
